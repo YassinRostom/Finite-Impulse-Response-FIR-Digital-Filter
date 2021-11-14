@@ -1,0 +1,91 @@
+clc
+clear
+ 
+%------------------Finite Impulse Response Digital Filter------------------
+ 
+%Normalised Third Order Analogue Filter
+[NUM3] = [0 0 0 1];
+[DEN3] = [1 2 2 1];
+Fc = 20e3;
+ 
+%FIR Filter Specifications
+    Fs = 50e3;
+    Fn = Fs/2;
+    Ap = 1;     %Passband ripple (dB)
+    As = 20;    %Stopband ripple (dB)
+ 
+%Band edge frequencies
+    F = [(20e3) (22e3)];
+ 
+%Desired magnitude response
+    M = [1 0];
+ 
+%Passband ripple
+    dp=(10^(Ap/20)-1)/(10^(Ap/20)+1);
+ 
+%Stopband ripple
+    ds = 10^(-As/20);
+ 
+%Deviation
+    dev = [dp ds];
+ 
+%Determine the order, N, of the FIR filter
+    [N,F0,M0,W] = firpmord(F, M, dev, Fs);
+ 
+%Generate the filter coefficients, b
+    [b,delta] = firpm(N, F0, M0, W);
+ 
+%Determine the magnitude response of the FIR filter
+    [H, f] = freqz(b, 1, 1024, Fs);
+    mag = 20*log10(abs(H));
+    
+%Determine the magnitude response of the IIR filter
+    [B3, A3] = lp2lp(NUM3, DEN3, 2*pi*Fc);
+    [Bd3, Ad3] = bilinear(B3, A3, Fs, Fc);
+    [Hd3, Fd3] = freqz(Bd3,Ad3,2^15,Fs); 
+%Determine the magnitude response of the analogue filter
+    [H3, W3] = freqs(B3, A3);
+    F3 = W3/(2*pi);
+    
+%------------------------FIR Filter Response-------------------------------
+    
+    figure(1);
+    subplot(2,2,1); 
+    plot(f, mag);
+    grid on;
+    xlabel('Frequency (Hz)');
+    ylabel('Magnitude (dB)');
+    title('FIR Filter Frequency Response'); 
+    
+    subplot(2,2,2);
+    plot(f, angle(H)*180/pi);
+    xlabel('Frequency (Hz)');
+    ylabel('Phase (Degrees)');
+    title('FIR Filter Phase Response');
+    
+%Plot the zeros of a pole zero map
+    subplot(2,2,4);
+    zplane(H);
+    title('FIR Filter Zero Map');
+%Print the filter coefficients to import into MBed
+    fprintf('Number of Coefficients: %d\n\n', N+1);
+    coffs = sprintf('%f,\n', b);
+    fprintf('Coefficients:\n%s', coffs);
+    
+%------------------PLOT ALL FILTERS FOR COMPARISON-------------------------
+    subplot(2,2,3);
+    axis([0 50e3, -25 5]);
+    hold on
+    grid on
+    
+    %Analogue
+    plot(F3, 20*log10(abs(H3)));
+    %IIR
+    plot(Fd3, 20*log10(abs(Hd3)));
+    %FIR
+    plot(f, 20*log10(abs(H)));
+    
+    title('Comparison of Analogue, IIR and FIR Filter Responses');
+    xlabel('Frequency (Hz)');
+    ylabel('Magnitude (dB)');
+    legend('Analogue Filter','IIR Filter','FIR filter');
